@@ -47,13 +47,27 @@ a { color: inherit; }
 code { font-family: ui-monospace, Consolas, monospace; font-size: .9em; background: rgba(0,0,0,.06); padding: 1px 6px; border-radius: 6px; }
 .muted { color: var(--muted); }
 
-/* ===== Soft warm blurred background ===== */
-.backdrop { position: fixed; inset: 0; z-index: -1; overflow: hidden; background: linear-gradient(160deg, #f8f1e4 0%, #efe3cf 55%, #e8d8bd 100%); }
-.blob { position: absolute; border-radius: 50%; filter: blur(80px); opacity: .75; animation: drift 24s ease-in-out infinite alternate; }
-.b1 { width: 46vmax; height: 46vmax; background: #f6d27a; top: -14vmax; left: -10vmax; }
-.b2 { width: 38vmax; height: 38vmax; background: #f0b99a; bottom: -12vmax; right: -8vmax; animation-delay: -6s; }
-.b3 { width: 30vmax; height: 30vmax; background: #fff4dc; top: 30%; left: 45%; animation-delay: -12s; }
-.b4 { width: 26vmax; height: 26vmax; background: #d8c3a0; bottom: 10%; left: 5%; animation-delay: -18s; opacity: .55; }
+/* ===== Wood background with drifting warm light ===== */
+.backdrop {
+  position: fixed; inset: 0; z-index: -1; overflow: hidden;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(255, 214, 140, .18), transparent 60%),
+    radial-gradient(ellipse at 50% 120%, rgba(0, 0, 0, .55), transparent 60%),
+    url("wood.svg") center / cover no-repeat,
+    #3a2414;
+}
+.backdrop::after { /* vignette + faint tech grid */
+  content: ""; position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse at center, transparent 45%, rgba(10, 5, 2, .55) 100%),
+    repeating-linear-gradient(90deg, rgba(255, 230, 180, .035) 0 1px, transparent 1px 64px),
+    repeating-linear-gradient(0deg, rgba(255, 230, 180, .035) 0 1px, transparent 1px 64px);
+}
+.blob { position: absolute; border-radius: 50%; filter: blur(90px); opacity: .32; mix-blend-mode: screen; animation: drift 24s ease-in-out infinite alternate; }
+.b1 { width: 46vmax; height: 46vmax; background: #f4c443; top: -16vmax; left: -12vmax; }
+.b2 { width: 38vmax; height: 38vmax; background: #ff9a5a; bottom: -14vmax; right: -10vmax; animation-delay: -6s; opacity: .22; }
+.b3 { width: 30vmax; height: 30vmax; background: #ffe7b8; top: 30%; left: 45%; animation-delay: -12s; opacity: .14; }
+.b4 { width: 26vmax; height: 26vmax; background: #7fd6ff; bottom: 10%; left: 5%; animation-delay: -18s; opacity: .10; }
 @keyframes drift { to { transform: translate(4vmax, 3vmax) scale(1.08); } }
 
 /* ===== Layout ===== */
@@ -372,4 +386,107 @@ body.locked .tabs, body.locked .tools, body.locked .lock-btn { display: none; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+/* =====================================================================
+   THEME: futuristic glass over wood
+   (overrides the base styles above — change these to re-theme)
+   ===================================================================== */
+:root {
+  --glass: rgba(255, 248, 236, 0.62);
+  --glass-strong: rgba(255, 248, 236, 0.78);
+  --glass-border: rgba(255, 255, 255, 0.55);
+  --dark: rgba(16, 11, 7, 0.66);
+  --dark-border: rgba(244, 196, 67, 0.28);
+  --on-wood: #fbf1e1;
+  --on-wood-muted: rgba(251, 241, 225, 0.72);
+  --glow: 0 0 0 1px rgba(244, 196, 67, .18), 0 0 28px -6px rgba(244, 196, 67, .45);
+  --shadow: 0 24px 50px -22px rgba(0, 0, 0, .7), 0 2px 8px rgba(0, 0, 0, .18);
+}
+body { background: #2b1a0e; }
+h1, h2, h3, .big, .acct-total, .hero-step, .day .d-head b, .split b { font-family: "Space Grotesk", "Manrope", system-ui, sans-serif; }
+.big, .acct-total, .split b { font-variant-numeric: tabular-nums; }
+
+/* Text that sits directly on the wood */
+.brand h1, .section-title h2, .cal-head h2 { color: var(--on-wood); text-shadow: 0 2px 12px rgba(0, 0, 0, .5); }
+.top .muted, .section-title .muted, .cal-head > .muted, .legend, .foot, .stocks-note { color: var(--on-wood-muted); }
+.legend { text-shadow: 0 1px 6px rgba(0,0,0,.5); }
+
+/* Glass panels: strong blur, bright rim, specular sheen */
+.glass, .card, .tabs, .sheet {
+  -webkit-backdrop-filter: blur(26px) saturate(160%) brightness(1.08);
+  backdrop-filter: blur(26px) saturate(160%) brightness(1.08);
+}
+.card {
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow), inset 0 1px 0 rgba(255, 255, 255, .85), inset 0 -1px 0 rgba(255, 255, 255, .2);
+}
+.card::before { /* light sweep across the glass */
+  content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: inherit;
+  background: linear-gradient(135deg, rgba(255, 255, 255, .42) 0%, rgba(255, 255, 255, 0) 38%, rgba(255, 255, 255, 0) 70%, rgba(255, 255, 255, .12) 100%);
+}
+.card > * { position: relative; }
+.card:hover { box-shadow: 0 30px 60px -24px rgba(0, 0, 0, .75), inset 0 1px 0 rgba(255, 255, 255, .9), 0 0 0 1px rgba(244, 196, 67, .35); }
+
+/* Smoked glass for the important (dark) cards, with a yellow edge glow */
+.card.dark, .day.today {
+  background: var(--dark);
+  border-color: var(--dark-border);
+  box-shadow: var(--shadow), var(--glow), inset 0 1px 0 rgba(255, 230, 180, .22);
+}
+.card.dark::before, .day.today::before { background: linear-gradient(135deg, rgba(255, 220, 150, .16) 0%, transparent 40%); }
+.card.dark::after { /* thin light line along the top edge */
+  content: ""; position: absolute; left: 18px; right: 18px; top: 0; height: 1px; pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(244, 196, 67, .9), transparent);
+}
+.card.accent {
+  background: linear-gradient(145deg, rgba(255, 214, 102, .92), rgba(244, 180, 40, .86));
+  box-shadow: var(--shadow), 0 0 34px -6px rgba(244, 196, 67, .7), inset 0 1px 0 rgba(255, 255, 255, .7);
+}
+
+/* Tab bar, search and filters: smoked glass with glowing active state */
+.tabs, .search, .filters, .lock-btn, .cal-nav button {
+  background: rgba(22, 14, 8, .42);
+  border: 1px solid rgba(255, 235, 200, .22);
+  box-shadow: 0 12px 30px -14px rgba(0, 0, 0, .7), inset 0 1px 0 rgba(255, 240, 210, .18);
+  color: var(--on-wood);
+}
+.tabs button, .filters button { color: var(--on-wood-muted); }
+.tabs button:hover, .filters button:hover { color: var(--on-wood); background: rgba(255, 255, 255, .08); }
+.tabs button.on { background: var(--accent); color: var(--accent-ink); box-shadow: 0 0 18px -2px rgba(244, 196, 67, .75); }
+.tabs button.on::before { background: var(--accent-ink); }
+.filters button.on { box-shadow: 0 0 14px -2px rgba(244, 196, 67, .7); }
+.search { color: var(--on-wood-muted); }
+.search input { color: var(--on-wood); }
+.search input::placeholder { color: var(--on-wood-muted); }
+.search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(244, 196, 67, .3), 0 0 24px -4px rgba(244, 196, 67, .5); }
+.lock-btn { color: var(--on-wood); }
+.lock-btn:hover { box-shadow: 0 0 18px -2px rgba(244, 196, 67, .75); }
+.cal-nav button:hover { color: var(--accent-ink); }
+.brand-dot { box-shadow: 0 0 22px -4px rgba(244, 196, 67, .6), var(--shadow); border: 1px solid rgba(244, 196, 67, .35); }
+.brand-dot::after { box-shadow: 0 0 12px rgba(244, 196, 67, .9); }
+.add-btn { border-color: rgba(255, 235, 200, .4); background: rgba(22, 14, 8, .35); color: var(--on-wood); }
+.add-btn:hover { color: var(--accent-ink); }
+.editor .add-btn { background: rgba(255,255,255,.6); color: var(--text); border-color: rgba(0,0,0,.2); }
+
+/* Progress bars glow a little */
+.bar { background: rgba(0, 0, 0, .1); box-shadow: inset 0 1px 2px rgba(0, 0, 0, .15); }
+.bar > i { box-shadow: 0 0 10px rgba(244, 196, 67, .5); }
+.card:not(.dark) .bar > i { box-shadow: none; }
+.card.dark .bar { background: rgba(255, 255, 255, .08); }
+
+/* Calendar days on wood */
+.day.past { opacity: .78; }
+.day.today .d-head small { text-shadow: 0 0 10px rgba(244, 196, 67, .8); }
+
+/* Bottom sheet and lock screen */
+.sheet { background: rgba(252, 246, 236, .86); border: 1px solid rgba(255, 255, 255, .6); box-shadow: 0 -20px 60px -20px rgba(0, 0, 0, .7); }
+.sheet-wrap.open { background: rgba(15, 8, 3, .5); }
+.lock-card { box-shadow: var(--shadow), var(--glow); }
+.toast { background: rgba(16, 11, 7, .86); border: 1px solid rgba(244, 196, 67, .35); box-shadow: var(--glow); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); }
+
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .card { background: rgba(255, 248, 236, .92); }
+  .card.dark, .day.today { background: rgba(22, 15, 10, .94); }
+  .tabs, .search, .filters, .lock-btn { background: rgba(30, 20, 12, .9); }
 }
