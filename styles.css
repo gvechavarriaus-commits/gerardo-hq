@@ -196,6 +196,9 @@ code { font-family: ui-monospace, Consolas, monospace; font-size: .9em; backgrou
 .split div { padding: 10px; border-radius: 14px; background: rgba(255,255,255,.45); text-align: center; }
 .split b { display: block; font-size: 1.4rem; font-weight: 800; }
 .split small { font-size: .72rem; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+.card.dark .split div { background: rgba(255,255,255,.07); }
+.card.dark .split small { color: #b3a690; }
+.split b { font-size: clamp(1rem, 4vw, 1.4rem); }
 
 /* ===== Calendar ===== */
 .cal-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin: 6px 4px 12px; }
@@ -222,6 +225,24 @@ code { font-family: ui-monospace, Consolas, monospace; font-size: .9em; backgrou
 .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
 
 .foot { text-align: center; font-size: .8rem; margin-top: 30px; }
+
+/* ===== Stocks ===== */
+.pos { color: #2f8a5b; } .neg { color: #c2483a; }
+.card.dark .pos { color: #6fd39d; } .card.dark .neg { color: #ff8f7d; }
+.acct-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; }
+.acct-mini { display: grid; gap: 4px; padding: 12px 14px; border-radius: var(--radius-sm); background: rgba(255,255,255,.45); font-size: .85rem; font-weight: 600; }
+.acct-total { font-size: 1.6rem; font-weight: 800; letter-spacing: -.03em; }
+.holding { display: grid !important; grid-template-columns: 1.2fr 1fr 1fr; gap: 10px; }
+.holding span { display: grid; min-width: 0; }
+.holding b { font-size: .95rem; }
+.holding small { font-size: .76rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.holding small.pos, .holding small.neg { font-weight: 700; }
+.holding small.pos { color: #2f8a5b; } .holding small.neg { color: #c2483a; }
+.holding .val { text-align: right; }
+.alloc { display: flex; height: 10px; border-radius: 999px; overflow: hidden; margin-top: 14px; gap: 2px; }
+.alloc i { display: block; height: 100%; background: hsl(calc(44 + var(--n) * 28) 80% calc(62% - var(--n) * 3%)); }
+.stocks-note { font-size: .8rem; text-align: center; margin: 4px 0 0; }
+@media (max-width: 600px) { .holding { grid-template-columns: 1fr 1fr; } .holding .qty { display: none; } }
 
 /* ===== Secret code lock ===== */
 .lock-btn { margin-left: auto; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: var(--muted); transition: color .2s, background .2s; }

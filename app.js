@@ -1,7 +1,7 @@
 // Command Center — reads data.json and builds every view from it.
 // You never need to edit this file: all your information lives in data.json.
 
-const TABS = ["overview", "business", "university", "personal", "calendar"];
+const TABS = ["overview", "business", "university", "personal", "stocks", "calendar"];
 const PRIORITY_RANK = { high: 0, medium: 1, low: 2 };
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -261,8 +261,10 @@ function renderOverview() {
       ${upcoming.length ? `<ul class="list">${upcoming.map((it) => itemRow(it)).join("")}</ul>` : `<p class="muted">No upcoming dates.</p>`}
     </article>`;
 
+  html += stocksOverviewCard();
+
   if (overdue.length) {
-    html += `<article class="card span-4" style="--i:6">
+    html += `<article class="card span-4" style="--i:7">
         <p class="label" style="color:#c2483a">Overdue</p>
         <ul class="list">${overdue.map((it) => itemRow(it)).join("")}</ul>
       </article>`;
@@ -327,6 +329,103 @@ function personalCard(p, i) {
   return projectCard(p, i, goals);
 }
 
+// ---------- stocks ----------
+
+function money(n, currency = "USD") {
+  return new Intl.NumberFormat("en-US", { style: "currency", currency, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+}
+const signedMoney = (n, cur) => (n >= 0 ? "+" : "−") + money(Math.abs(n), cur);
+const signedPct = (n) => (n >= 0 ? "+" : "−") + Math.abs(n).toFixed(2) + "%";
+const tone = (n) => (n > 0 ? "pos" : n < 0 ? "neg" : "");
+
+const holdingValue = (h) => (Number(h.shares) || 0) * (Number(h.price) || 0);
+const holdingCost = (h) => (Number(h.shares) || 0) * (Number(h.avgCost) || 0);
+const holdingPnl = (h) => (Number.isFinite(Number(h.pnl)) ? Number(h.pnl) : holdingValue(h) - holdingCost(h));
+
+function accountStats(acc) {
+  const holdings = acc.holdings || [];
+  const invested = holdings.reduce((s, h) => s + holdingValue(h), 0);
+  const cost = holdings.reduce((s, h) => s + holdingCost(h), 0);
+  const pnl = holdings.reduce((s, h) => s + holdingPnl(h), 0);
+  const hasDay = holdings.some((h) => Number.isFinite(Number(h.dayPnl)));
+  const day = holdings.reduce((s, h) => s + (Number(h.dayPnl) || 0), 0);
+  const total = Number.isFinite(Number(acc.total)) ? Number(acc.total) : invested + (Number(acc.cash) || 0);
+  return { holdings, invested, cost, pnl, pct: cost ? (pnl / cost) * 100 : 0, day: hasDay ? day : null, total };
+}
+
+const accountBadge = (acc) =>
+  acc.type === "practice" ? `<span class="pill example">practice money</span>` : `<span class="pill st-active"><span class="dot"></span>real money</span>`;
+
+function stocksOverviewCard() {
+  const inv = state.data?.investments;
+  if (!inv || !(inv.accounts || []).length) return "";
+  const rows = inv.accounts.map((acc) => {
+    const s = accountStats(acc);
+    return `<div class="acct-mini">
+      <div class="row between"><b>${esc(acc.name)}</b>${accountBadge(acc)}</div>
+      <span class="acct-total">${money(s.total, acc.currency)}</span>
+      <span class="${tone(s.pnl)}">${signedMoney(s.pnl, acc.currency)} (${signedPct(s.pct)}) total</span>
+    </div>`;
+  }).join("");
+  return `<article class="card span-4 clickable" data-go="stocks" style="--i:6">
+      <div class="row between"><p class="label">Stocks</p><span class="muted" style="font-size:.8rem">Updated ${esc(inv.updated || "")}</span></div>
+      <div class="acct-grid">${rows}</div>
+    </article>`;
+}
+
+function renderStocks() {
+  const inv = state.data?.investments;
+  if (!inv || !(inv.accounts || []).length) {
+    return sectionTitle("Stocks") + `<div class="cards">${emptyState("No accounts yet. Ask Claude to add your stocks.")}</div>`;
+  }
+  const q = state.query.trim().toLowerCase();
+
+  const html = inv.accounts.map((acc, ai) => {
+    const s = accountStats(acc);
+    const cur = acc.currency || "USD";
+    const holdings = [...s.holdings]
+      .filter((h) => !q || `${h.symbol} ${h.name}`.toLowerCase().includes(q))
+      .sort((a, b) => holdingValue(b) - holdingValue(a));
+    const real = acc.type !== "practice";
+
+    const allocation = s.invested
+      ? `<div class="alloc">${holdings.map((h, i) => `<i style="width:${(holdingValue(h) / s.invested) * 100}%;--n:${i}" title="${esc(h.symbol)}"></i>`).join("")}</div>`
+      : "";
+
+    const rows = holdings.map((h) => {
+      const pnl = holdingPnl(h);
+      const cost = holdingCost(h);
+      return `<li class="holding">
+        <span class="sym"><b>${esc(h.symbol)}</b><small>${esc(h.name || "")}</small></span>
+        <span class="qty"><small>${Number(h.shares)} @ ${money(Number(h.avgCost), cur)}</small><small>now ${money(Number(h.price), cur)}</small></span>
+        <span class="val"><b>${money(holdingValue(h), cur)}</b><small class="${tone(pnl)}">${signedMoney(pnl, cur)} · ${signedPct(cost ? (pnl / cost) * 100 : 0)}</small></span>
+      </li>`;
+    }).join("");
+
+    return `<div class="bento" style="margin-bottom:14px">
+      <article class="card ${real ? "dark" : ""} span-2" style="--i:${ai * 3}">
+        <div class="row between"><p class="label">${esc(acc.name)}</p>${accountBadge(acc)}</div>
+        <p class="big">${money(s.total, cur)}</p>
+        <p class="${tone(s.pnl)}" style="font-weight:700">${signedMoney(s.pnl, cur)} (${signedPct(s.pct)}) since you bought</p>
+        ${s.day !== null ? `<p class="${tone(s.day)}" style="font-size:.9rem">${signedMoney(s.day, cur)} today</p>` : ""}
+        <div class="split" style="margin-top:12px">
+          <div><b>${money(s.invested, cur)}</b><small>Invested now</small></div>
+          <div><b>${money(Number(acc.cash) || 0, cur)}</b><small>Cash</small></div>
+          <div><b>${(acc.holdings || []).length}</b><small>Holdings</small></div>
+        </div>
+        ${allocation}
+      </article>
+      <article class="card span-2" style="--i:${ai * 3 + 1}">
+        <p class="label">Holdings · biggest first</p>
+        ${rows ? `<ul class="list">${rows}</ul>` : `<p class="muted">No matches.</p>`}
+      </article>
+    </div>`;
+  }).join("");
+
+  return sectionTitle("Stocks", `Updated ${inv.updated || ""}`) + html +
+    `<p class="muted stocks-note">${esc(inv.note || "")}</p>`;
+}
+
 function renderCalendar() {
   const start = addDays(startOfWeek(today()), state.weekOffset * 7);
   const end = addDays(start, 6);
@@ -378,6 +477,7 @@ function render() {
     business: () => renderCategory("business", "Business", "projects"),
     university: () => renderCategory("university", "University", "courses"),
     personal: () => renderCategory("personal", "Personal", "goals"),
+    stocks: renderStocks,
     calendar: renderCalendar,
   }[state.tab]();
 
