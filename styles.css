@@ -494,3 +494,9 @@ h1, h2, h3, .big, .acct-total, .hero-step, .day .d-head b, .split b, .tabs butto
 @media (max-width: 600px) { .brand h1 { font-size: 1.55rem; } .brand p { font-size: .8rem; } }
 .brand > div { min-width: 0; }
 @media (min-width: 1000px) { .top { grid-template-columns: minmax(0, 1fr) auto; } }
+
+/* Google Calendar events */
+:root { --cat-calendar: #5c9e86; }
+.c-calendar { background: var(--cat-calendar); }
+.chip.k-calendar { border-left-color: var(--cat-calendar); background: rgba(232, 246, 240, .7); }
+.day.today .chip.k-calendar { background: rgba(92, 158, 134, .25); }

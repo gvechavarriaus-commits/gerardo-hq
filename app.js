@@ -101,6 +101,38 @@ function datedItems(list) {
   return items.sort((a, b) => a.date - b.date);
 }
 
+// Google Calendar events (copied into the data by the calendar sync).
+// Multi-day events appear on each of their days; repeating ones only in the Calendar tab.
+const GOOGLE_CAL = { name: "Google Calendar", category: "Calendar" };
+
+function calendarItems({ includeRecurring = false, eachDay = false } = {}) {
+  if (state.status !== "all") return [];
+  const q = state.query.trim().toLowerCase();
+  const out = [];
+  for (const e of state.data?.calendar?.events || []) {
+    if (e.recurring && !includeRecurring) continue;
+    if (q && !`${e.title} ${e.location || ""}`.toLowerCase().includes(q)) continue;
+    const start = parseDate(e.date);
+    if (!start) continue;
+    const end = parseDate(e.endDate) || start;
+    const type = e.time ? `${e.time}${e.endTime ? "–" + e.endTime : ""}` : "all day";
+    if (!eachDay) {
+      // Lists show a multi-day event once: from today if it already started.
+      if (end < today()) continue;
+      const shown = start < today() ? today() : start;
+      out.push({ date: shown, title: e.title, project: GOOGLE_CAL, isEvent: true, time: e.time || "",
+        type: end > start ? `${type} · until ${fmtDate(end)}` : type });
+      continue;
+    }
+    for (let d = start; d <= end; d = addDays(d, 1)) {
+      out.push({ date: d, title: e.title, project: GOOGLE_CAL, isEvent: true, time: e.time || "", type });
+    }
+  }
+  return out;
+}
+
+const byDateTime = (a, b) => a.date - b.date || (a.time || "").localeCompare(b.time || "");
+
 function nextDate(p) {
   const dates = datedItems([p]).map((i) => i.date).filter((d) => daysUntil(d) >= 0);
   return dates[0] || null;
@@ -220,9 +252,11 @@ function renderOverview() {
   const weekStart = startOfWeek(today());
   const weekEnd = addDays(weekStart, 6);
   const items = datedItems(all);
-  const thisWeek = items.filter((it) => it.date >= weekStart && it.date <= weekEnd);
+  const events = calendarItems().filter((it) => daysUntil(it.date) >= 0);
+  const thisWeekDue = items.filter((it) => it.date >= weekStart && it.date <= weekEnd);
+  const thisWeek = [...thisWeekDue, ...events.filter((it) => it.date <= weekEnd)].sort(byDateTime);
   const overdue = items.filter((it) => daysUntil(it.date) < 0 && it.date < weekStart);
-  const upcoming = items.filter((it) => it.date > weekEnd).slice(0, 6);
+  const upcoming = [...items, ...events].filter((it) => it.date > weekEnd).sort(byDateTime).slice(0, 6);
   const top = topPriority(all);
   const avg = active.length ? active.reduce((s, p) => s + p.progress, 0) / active.length : 0;
 
@@ -250,7 +284,7 @@ function renderOverview() {
 
   html += `<article class="card clickable" data-go="calendar" style="--i:2">
       <p class="label">Due this week</p>
-      <p class="big">${thisWeek.length}</p>
+      <p class="big">${thisWeekDue.length}</p>
       <p class="muted">${overdue.length ? `${overdue.length} overdue from before` : `${fmtDate(weekStart)} – ${fmtDate(weekEnd)}`}</p>
     </article>`;
 
@@ -503,8 +537,11 @@ function renderStocks() {
 function renderCalendar() {
   const start = addDays(startOfWeek(today()), state.weekOffset * 7);
   const end = addDays(start, 6);
-  const items = datedItems(visible(projects())).filter((it) => it.date >= start && it.date <= end);
+  const items = [...datedItems(visible(projects())), ...calendarItems({ includeRecurring: true, eachDay: true })]
+    .filter((it) => it.date >= start && it.date <= end)
+    .sort(byDateTime);
   const t = today();
+  const synced = state.data?.calendar?.updated;
 
   let days = "";
   for (let n = 0; n < 7; n++) {
@@ -514,7 +551,9 @@ function renderCalendar() {
     days += `<section class="card day${cls}" style="--i:${n}">
       <div class="d-head"><small>${DAY_NAMES[d.getDay()]}</small><b>${d.getDate()}</b></div>
       <div>${dayItems.length
-        ? dayItems.map((it) => `<span class="chip k-${esc(catKey(it.project))}">${esc(it.title)}<small>${esc(it.project.name)} · ${esc(it.type)}${it.example ? " · example" : ""}</small></span>`).join("")
+        ? dayItems.map((it) => it.isEvent
+          ? `<span class="chip k-calendar">${esc(it.title)}<small>${esc(it.type)}</small></span>`
+          : `<span class="chip k-${esc(catKey(it.project))}">${esc(it.title)}<small>${esc(it.project.name)} · ${esc(it.type)}${it.example ? " · example" : ""}</small></span>`).join("")
         : `<span class="none">—</span>`}</div>
     </section>`;
   }
@@ -534,6 +573,7 @@ function renderCalendar() {
       <span><i style="background:var(--cat-business)"></i>Business</span>
       <span><i style="background:var(--cat-university)"></i>University</span>
       <span><i style="background:var(--cat-personal)"></i>Personal</span>
+      <span><i style="background:var(--cat-calendar)"></i>Google Calendar${synced ? ` · synced ${esc(synced)}` : ""}</span>
     </div>`;
 }
 
