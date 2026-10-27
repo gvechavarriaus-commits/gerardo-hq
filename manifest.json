@@ -1,0 +1,15 @@
+{
+  "name": "Gerardo's Command Center",
+  "short_name": "Gerardo HQ",
+  "description": "Everything I'm building, studying and training for.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f6efe2",
+  "theme_color": "#efe6d6",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
