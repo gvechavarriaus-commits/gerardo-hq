@@ -968,7 +968,7 @@ function start(data, code) {
   document.body.classList.remove("locked");
   state.data = data;
   state.code = code;
-  if (data.owner) document.getElementById("title").textContent = `${data.owner}'s Command Center`;
+  if (data.owner) document.getElementById("title").textContent = `Welcome back, ${data.owner}`;
   if (data.tagline) document.getElementById("today").textContent += ` · ${data.tagline}`;
   render();
 }

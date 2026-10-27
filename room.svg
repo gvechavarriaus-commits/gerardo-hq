@@ -1,0 +1,73 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1000" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice">
+  <!-- A soft, sunlit living room, blurred like a photo shot with a shallow focus -->
+  <defs>
+    <linearGradient id="wall" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f1ece3"/><stop offset="1" stop-color="#e2d7c6"/>
+    </linearGradient>
+    <linearGradient id="floor" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#cdb99b"/><stop offset="1" stop-color="#b9a07d"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="0.82" cy="0.32" r="0.55">
+      <stop offset="0" stop-color="#fffaf0" stop-opacity=".95"/><stop offset=".45" stop-color="#fff6e6" stop-opacity=".35"/><stop offset="1" stop-color="#fff6e6" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="sofa" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f6f2ea"/><stop offset="1" stop-color="#ddd3c3"/>
+    </linearGradient>
+    <filter id="soft" x="-5%" y="-5%" width="110%" height="110%"><feGaussianBlur stdDeviation="9"/></filter>
+  </defs>
+
+  <g filter="url(#soft)">
+    <!-- walls -->
+    <rect width="1600" height="1000" fill="url(#wall)"/>
+    <polygon points="0,0 260,60 260,760 0,860" fill="#dcd1bf"/>
+    <!-- window with daylight -->
+    <rect x="1190" y="90" width="330" height="560" rx="6" fill="#fdfaf3"/>
+    <rect x="1350" y="90" width="10" height="560" fill="#e7dccb"/>
+    <rect x="1190" y="360" width="330" height="10" fill="#e7dccb"/>
+    <rect x="1170" y="70" width="40" height="640" fill="#efe6d6"/>
+    <!-- wall art (left) -->
+    <rect x="40" y="200" width="150" height="190" rx="4" fill="#cdbfa8"/>
+    <rect x="58" y="220" width="114" height="150" fill="#e8dfcf"/>
+    <!-- round rattan mirror -->
+    <circle cx="820" cy="320" r="128" fill="#cfae7e"/>
+    <circle cx="820" cy="320" r="104" fill="#e6d3b3"/>
+    <circle cx="820" cy="320" r="84" fill="#f3ebde"/>
+    <!-- low wooden sideboard -->
+    <rect x="40" y="560" width="300" height="150" rx="10" fill="#a98159"/>
+    <rect x="52" y="575" width="135" height="120" rx="6" fill="#b48d64"/>
+    <rect x="195" y="575" width="135" height="120" rx="6" fill="#b48d64"/>
+    <!-- tall plant on the sideboard -->
+    <ellipse cx="190" cy="440" rx="70" ry="120" fill="#7b8a58"/>
+    <ellipse cx="140" cy="480" rx="55" ry="90" fill="#8c9b66" transform="rotate(-20 140 480)"/>
+    <ellipse cx="245" cy="470" rx="50" ry="95" fill="#6c7b4b" transform="rotate(18 245 470)"/>
+    <rect x="160" y="520" width="60" height="50" rx="12" fill="#e9e1d3"/>
+    <!-- plant by the window -->
+    <ellipse cx="1520" cy="560" rx="80" ry="150" fill="#7f8e5c"/>
+    <ellipse cx="1470" cy="600" rx="60" ry="110" fill="#93a26d" transform="rotate(-15 1470 600)"/>
+    <rect x="1480" y="660" width="90" height="90" rx="20" fill="#d9ccb8"/>
+    <!-- floor and rug -->
+    <rect y="740" width="1600" height="260" fill="url(#floor)"/>
+    <ellipse cx="820" cy="880" rx="640" ry="105" fill="#ebe3d5"/>
+    <!-- sofa -->
+    <rect x="420" y="500" width="800" height="190" rx="70" fill="url(#sofa)"/>
+    <rect x="370" y="610" width="900" height="150" rx="60" fill="#e9e2d6"/>
+    <rect x="340" y="560" width="120" height="200" rx="55" fill="#efe9de"/>
+    <rect x="1180" y="560" width="120" height="200" rx="55" fill="#efe9de"/>
+    <rect x="500" y="540" width="200" height="120" rx="40" fill="#f7f3ec"/>
+    <rect x="940" y="540" width="200" height="120" rx="40" fill="#f7f3ec"/>
+    <rect x="730" y="555" width="170" height="110" rx="40" fill="#d8c7ac"/>
+    <!-- round wooden coffee table with a plant -->
+    <rect x="780" y="790" width="16" height="70" fill="#7a5a3c"/>
+    <rect x="850" y="790" width="16" height="70" fill="#7a5a3c"/>
+    <ellipse cx="822" cy="790" rx="190" ry="40" fill="#9b7653"/>
+    <ellipse cx="822" cy="782" rx="190" ry="34" fill="#ad8862"/>
+    <rect x="800" y="725" width="44" height="55" rx="10" fill="#efe7da"/>
+    <ellipse cx="822" cy="695" rx="70" ry="48" fill="#7d8c5a"/>
+    <ellipse cx="790" cy="705" rx="40" ry="30" fill="#909f6a"/>
+    <!-- pouf -->
+    <ellipse cx="330" cy="870" rx="120" ry="64" fill="#f1ebe1"/>
+    <ellipse cx="330" cy="848" rx="120" ry="40" fill="#f7f3ec"/>
+    <!-- sunlight washing across the room -->
+    <rect width="1600" height="1000" fill="url(#sun)"/>
+  </g>
+</svg>
