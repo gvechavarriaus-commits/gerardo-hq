@@ -1,7 +1,7 @@
 {
   "name": "Gerardo's Command Center",
   "short_name": "Gerardo HQ",
-  "description": "Everything I'm building, studying and training for.",
+  "description": "Gerardo's personal dashboard.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
