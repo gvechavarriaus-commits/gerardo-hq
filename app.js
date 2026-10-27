@@ -1,12 +1,12 @@
-// Command Center — reads data.json and builds every view from it.
-// You never need to edit this file: all your information lives in data.json.
+// Command Center — reads the locked data and builds every view from it.
+// Changes made in the app are saved back to GitHub (see "saving & sync" below).
 
 const TABS = ["overview", "business", "university", "personal", "stocks", "calendar"];
 const PRIORITY_RANK = { high: 0, medium: 1, low: 2 };
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-const state = { data: null, tab: "overview", query: "", status: "all", weekOffset: 0 };
+const state = { data: null, code: null, tab: "overview", query: "", status: "all", weekOffset: 0 };
 const view = document.getElementById("view");
 
 // ---------- small helpers ----------
@@ -41,6 +41,8 @@ const daysUntil = (date) => Math.round((date - today()) / 86400000);
 const fmtDate = (d) => `${DAY_NAMES[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}`;
 const clamp = (n, lo, hi) => Math.min(hi, Math.max(lo, n));
 const catKey = (p) => String(p.category || "").toLowerCase();
+const pad2 = (n) => String(n).padStart(2, "0");
+const isoDate = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 
 function relative(date) {
   const n = daysUntil(date);
@@ -91,10 +93,10 @@ function datedItems(list) {
     if (p.status === "done") continue;
     const d = parseDate(p.deadline);
     if (d) items.push({ date: d, title: p.nextStep || "Deadline", project: p, type: "deadline" });
-    for (const t of p.tasks || []) {
+    (p.tasks || []).forEach((t, taskIndex) => {
       const td = parseDate(t.date);
-      if (td && !t.done) items.push({ date: td, title: t.title, project: p, type: t.type || "task", example: t.example });
-    }
+      if (td && !t.done) items.push({ date: td, title: t.title, project: p, type: t.type || "task", example: t.example, taskIndex });
+    });
   }
   return items.sort((a, b) => a.date - b.date);
 }
@@ -155,6 +157,13 @@ function nextStepHtml(p) {
   return p.nextStep ? `<p class="next"><small>Next step</small>${esc(p.nextStep)}</p>` : "";
 }
 
+const editButton = (p) =>
+  `<button class="edit-btn" data-edit="${esc(p.name)}" aria-label="Edit ${esc(p.name)}" title="Edit">
+    <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16v4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+  </button>`;
+
+const cardTitle = (p) => `<div class="title-row"><h3>${esc(p.name)}</h3>${editButton(p)}</div>`;
+
 function projectCard(p, i, extra = "") {
   const dark = p.status === "active" && p.priority === "high";
   const due = parseDate(p.deadline);
@@ -163,7 +172,7 @@ function projectCard(p, i, extra = "") {
       <div class="row">${statusPill(p)}${priorityPill(p)}</div>
       ${due && p.status !== "done" ? `<span class="row">${duePill(due)}</span>` : ""}
     </div>
-    <h3 style="margin-top:12px">${esc(p.name)}</h3>
+    ${cardTitle(p)}
     ${nextStepHtml(p)}
     ${extra}
     ${progressBar(p.progress)}
@@ -174,7 +183,11 @@ function projectCard(p, i, extra = "") {
 
 function itemRow(item, showProject = true) {
   const d = item.date;
+  const check = Number.isInteger(item.taskIndex)
+    ? `<button class="check" data-done="${esc(item.project.name)}" data-task="${item.taskIndex}" aria-label="Mark ${esc(item.title)} as done" title="Mark as done"></button>`
+    : "";
   return `<li>
+    ${check}
     <span class="cat-bar c-${esc(catKey(item.project))}"></span>
     <span class="when"><b>${d.getDate()}</b><small>${DAY_NAMES[d.getDay()]}</small></span>
     <span class="what">
@@ -277,7 +290,8 @@ function renderCategory(cat, title, sub) {
   const list = visible(projects().filter((p) => catKey(p) === cat));
   list.sort((a, b) => ["active", "idea", "paused", "done"].indexOf(a.status) - ["active", "idea", "paused", "done"].indexOf(b.status) ||
     (PRIORITY_RANK[a.priority] ?? 1) - (PRIORITY_RANK[b.priority] ?? 1));
-  const head = sectionTitle(title, `${list.length} ${sub}`);
+  const head = `<div class="section-title"><h2>${esc(title)}</h2>
+    <span class="row"><span class="muted">${list.length} ${esc(sub)}</span><button class="add-btn" data-new="${esc(title)}">+ Add</button></span></div>`;
   if (!list.length) return head + `<div class="cards">${emptyState("No matches for this search or filter.")}</div>`;
 
   if (cat === "university") return head + `<div class="cards">${list.map(courseCard).join("")}</div>`;
@@ -287,7 +301,7 @@ function renderCategory(cat, title, sub) {
 
 function courseCard(p, i) {
   const tasks = (p.tasks || [])
-    .map((t) => ({ ...t, d: parseDate(t.date) }))
+    .map((t, taskIndex) => ({ ...t, taskIndex, d: parseDate(t.date) }))
     .filter((t) => t.d)
     .sort((a, b) => a.d - b.d);
   const upcoming = tasks.filter((t) => !t.done && daysUntil(t.d) >= 0);
@@ -295,7 +309,7 @@ function courseCard(p, i) {
   const dark = soonest && daysUntil(soonest.d) <= 3;
 
   const taskList = upcoming.length
-    ? `<ul class="list" style="margin-top:12px">${upcoming.map((t) => itemRow({ date: t.d, title: t.title, type: t.type || "task", project: p, example: t.example }, false)).join("")}</ul>`
+    ? `<ul class="list" style="margin-top:12px">${upcoming.map((t) => itemRow({ date: t.d, title: t.title, type: t.type || "task", project: p, example: t.example, taskIndex: t.taskIndex }, false)).join("")}</ul>`
     : `<p class="muted" style="margin-top:12px">No upcoming exams or assignments.</p>`;
 
   return `<article class="card${dark ? " dark" : ""}" style="--i:${i}">
@@ -303,7 +317,7 @@ function courseCard(p, i) {
       <div class="row">${statusPill(p)}</div>
       ${soonest ? `<span class="row">${duePill(soonest.d, soonest.example)}</span>` : ""}
     </div>
-    <h3 style="margin-top:12px">${esc(p.name)}</h3>
+    ${cardTitle(p)}
     ${p.studyingNow ? `<p class="next"><small>Studying now</small>${esc(p.studyingNow)}</p>` : ""}
     ${p.nextStep && p.nextStep !== p.studyingNow ? `<p class="notes">Next: ${esc(p.nextStep)}</p>` : ""}
     ${taskList}
@@ -313,20 +327,80 @@ function courseCard(p, i) {
   </article>`;
 }
 
-function goalPct(g) {
-  const start = Number(g.start), current = Number(g.current), target = Number(g.target);
+// Goals can follow the project's log: "weight" uses the latest weigh-in,
+// any other track counts this week's log entries ("workout" also counts runs).
+const LOG_LABELS = { workout: "+ Workout", run: "+ Run" };
+const logCounts = (track, type) => type === track || (track === "workout" && type === "run");
+
+function goalValue(p, g) {
+  const log = p.log || [];
+  if (g.track === "weight") {
+    const last = log.filter((e) => e.type === "weight").sort((a, b) => (a.date + a.id).localeCompare(b.date + b.id)).pop();
+    return last ? Number(last.value) : Number(g.current);
+  }
+  if (g.track) {
+    const weekStart = isoDate(startOfWeek(today()));
+    return log.filter((e) => e.date >= weekStart && logCounts(g.track, e.type)).length;
+  }
+  return Number(g.current);
+}
+
+function goalPct(p, g) {
+  const start = Number(g.start), current = goalValue(p, g), target = Number(g.target);
   if (![start, current, target].every(Number.isFinite) || target === start) return 0;
   return clamp(((current - start) / (target - start)) * 100, 0, 100);
 }
 
+function logPanel(p) {
+  const tracks = [...new Set((p.goals || []).map((g) => g.track).filter(Boolean))];
+  if (!tracks.length) return "";
+  const name = esc(p.name);
+  const log = p.log || [];
+
+  const buttons = tracks.filter((t) => t !== "weight")
+    .map((t) => `<button class="log-btn" data-log="${name}" data-type="${esc(t)}">${esc(LOG_LABELS[t] || "+ " + t)}</button>`).join("");
+  const weightForm = tracks.includes("weight")
+    ? `<form class="weight-form" data-weight="${name}">
+        <input type="number" step="0.1" min="20" max="400" inputmode="decimal" placeholder="Today's weight (kg)" required>
+        <button type="submit" class="log-btn">Log</button>
+      </form>`
+    : "";
+
+  const weekStart = startOfWeek(today());
+  const strip = Array.from({ length: 7 }, (_, n) => {
+    const d = addDays(weekStart, n);
+    const day = log.filter((e) => e.date === isoDate(d) && e.type !== "weight");
+    const mark = day.some((e) => e.type === "run") ? "R" : day.length ? "✓" : "";
+    return `<span class="day-dot${day.length ? " on" : ""}${sameDay(d, today()) ? " now" : ""}"><small>${DAY_NAMES[d.getDay()][0]}</small>${mark}</span>`;
+  }).join("");
+
+  const recent = [...log].sort((a, b) => (b.date + b.id).localeCompare(a.date + a.id)).slice(0, 4)
+    .map((e) => `<li><span>${esc(e.type === "weight" ? `Weight ${e.value} kg` : e.type[0].toUpperCase() + e.type.slice(1))}</span>
+      <small>${fmtDate(parseDate(e.date))}</small>
+      <button class="x-btn" data-unlog="${name}" data-id="${esc(e.id)}" aria-label="Remove this entry">×</button></li>`).join("");
+
+  return `<div class="log-panel">
+    <div class="row">${buttons}</div>
+    ${weightForm}
+    <div class="week-strip">${strip}</div>
+    ${recent ? `<ul class="log-list">${recent}</ul>` : ""}
+  </div>`;
+}
+
 function personalCard(p, i) {
   const goals = (p.goals || [])
-    .map((g) => `<div class="goal">
-        ${progressBar(goalPct(g), `${g.label}: ${g.current} → ${g.target} ${g.unit || ""}`.trim(), true)}
+    .map((g) => {
+      const value = goalValue(p, g);
+      const label = g.track && g.track !== "weight"
+        ? `${g.label}: ${value} of ${g.target}`
+        : `${g.label}: ${value} → ${g.target} ${g.unit || ""}`.trim();
+      return `<div class="goal">
+        ${progressBar(goalPct(p, g), label, true)}
         ${g.example ? `<div class="row" style="margin-top:6px">${exampleTag()}<span class="muted" style="font-size:.78rem">started at ${esc(g.start)} ${esc(g.unit || "")}</span></div>` : ""}
-      </div>`)
+      </div>`;
+    })
     .join("");
-  return projectCard(p, i, goals);
+  return projectCard(p, i, goals + logPanel(p));
 }
 
 // ---------- stocks ----------
@@ -511,6 +585,31 @@ document.getElementById("search").addEventListener("input", (e) => {
 
 view.addEventListener("click", (e) => {
   if (e.target.closest("a")) return;
+
+  const edit = e.target.closest("[data-edit]");
+  if (edit) return openEditor(edit.dataset.edit);
+  const add = e.target.closest("[data-new]");
+  if (add) return openEditor(null, add.dataset.new);
+
+  const done = e.target.closest("[data-done]");
+  if (done) {
+    const name = done.dataset.done, index = Number(done.dataset.task);
+    const title = findProject(state.data, name)?.tasks?.[index]?.title || "Task";
+    return save((d) => { const t = findProject(d, name)?.tasks?.[index]; if (t) t.done = true; }, `Done: ${title}`);
+  }
+
+  const log = e.target.closest("[data-log]");
+  if (log) {
+    const name = log.dataset.log, type = log.dataset.type, entry = { id: String(Date.now()), date: isoDate(today()), type };
+    return save((d) => { const p = findProject(d, name); if (p) (p.log ||= []).push(entry); }, `Logged ${type}`);
+  }
+
+  const unlog = e.target.closest("[data-unlog]");
+  if (unlog) {
+    const name = unlog.dataset.unlog, id = unlog.dataset.id;
+    return save((d) => { const p = findProject(d, name); if (p) p.log = (p.log || []).filter((x) => x.id !== id); }, "Removed log entry");
+  }
+
   const week = e.target.closest("[data-week]");
   if (week) {
     const step = Number(week.dataset.week);
@@ -522,7 +621,312 @@ view.addEventListener("click", (e) => {
   if (go) setTab(go.dataset.go);
 });
 
+view.addEventListener("submit", (e) => {
+  const form = e.target.closest("[data-weight]");
+  if (!form) return;
+  e.preventDefault();
+  const value = Math.round(Number(form.querySelector("input").value) * 10) / 10;
+  if (!Number.isFinite(value) || value <= 0) return;
+  const name = form.dataset.weight, entry = { id: String(Date.now()), date: isoDate(today()), type: "weight", value };
+  save((d) => { const p = findProject(d, name); if (p) (p.log ||= []).push(entry); }, `Logged weight ${value} kg`);
+});
+
 window.addEventListener("hashchange", () => setTab(location.hash.slice(1)));
+
+// ---------- saving & sync ----------
+// Every change is a small function applied to the newest copy on GitHub, then
+// locked again with the secret code and saved there, so all devices stay in step.
+
+const REPO = "gvechavarriaus-commits/gerardo-hq";
+const CONTENTS_API = `https://api.github.com/repos/${REPO}/contents/data.locked.json`;
+const TOKEN_KEY = "gerardo-hq-github-token";
+const ITERATIONS = 600000;
+
+const tokenStore = {
+  get() { try { return localStorage.getItem(TOKEN_KEY); } catch { return null; } },
+  set(t) { try { localStorage.setItem(TOKEN_KEY, t); } catch {} },
+  clear() { try { localStorage.removeItem(TOKEN_KEY); } catch {} },
+};
+
+const findProject = (data, name) => (data.projects || []).find((p) => p.name === name);
+
+function toB64(bytes) {
+  let s = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+
+async function lockData(data, code) {
+  const enc = new TextEncoder();
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const base = await crypto.subtle.importKey("raw", enc.encode(code), "PBKDF2", false, ["deriveKey"]);
+  const key = await crypto.subtle.deriveKey(
+    { name: "PBKDF2", salt, iterations: ITERATIONS, hash: "SHA-256" },
+    base, { name: "AES-GCM", length: 256 }, false, ["encrypt"]
+  );
+  const cipher = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, enc.encode(JSON.stringify(data, null, 2))));
+  return { v: 1, iterations: ITERATIONS, salt: toB64(salt), iv: toB64(iv), data: toB64(cipher) };
+}
+
+const githubHeaders = (token) => ({ Authorization: `Bearer ${token}`, Accept: "application/vnd.github+json" });
+
+async function fetchRemote(token) {
+  const r = await fetch(`${CONTENTS_API}?ref=main&t=${Date.now()}`, { headers: githubHeaders(token), cache: "no-store" });
+  if (!r.ok) throw Object.assign(new Error(`GitHub said ${r.status}`), { status: r.status });
+  const j = await r.json();
+  return { sha: j.sha, locked: JSON.parse(atob(j.content.replace(/\s/g, ""))) };
+}
+
+async function pushRemote(token, locked, sha, message) {
+  const r = await fetch(CONTENTS_API, {
+    method: "PUT",
+    headers: { ...githubHeaders(token), "Content-Type": "application/json" },
+    body: JSON.stringify({ message, sha, branch: "main", content: btoa(JSON.stringify(locked) + "\n") }),
+  });
+  if (!r.ok) throw Object.assign(new Error(`GitHub said ${r.status}`), { status: r.status });
+}
+
+let saveQueue = Promise.resolve();
+let pendingSaves = 0;
+
+function save(mutate, message) {
+  const token = tokenStore.get();
+  if (!token) return openSyncSheet("To save changes, connect this device once.");
+
+  mutate(state.data); // show the change straight away
+  render();
+  pendingSaves++;
+  toast("Saving…");
+
+  saveQueue = saveQueue.then(async () => {
+    try {
+      for (let attempt = 0; ; attempt++) {
+        const { sha, locked } = await fetchRemote(token);
+        const fresh = await unlock(locked, state.code);
+        mutate(fresh);
+        try {
+          await pushRemote(token, await lockData(fresh, state.code), sha, message);
+          if (pendingSaves === 1) { state.data = fresh; render(); }
+          toast(`Saved ✓ ${message}`);
+          return;
+        } catch (err) {
+          if ((err.status === 409 || err.status === 422) && attempt < 2) continue; // someone saved in between
+          throw err;
+        }
+      }
+    } catch (err) {
+      toast(err.status === 401 || err.status === 403 || err.status === 404
+        ? "Not saved: this device's GitHub key doesn't work. Reconnect it."
+        : `Not saved (${err.message}). Check your internet and try again.`, true);
+      if (err.status === 401 || err.status === 403) openSyncSheet("This device's GitHub key stopped working. Paste a new one.");
+      reloadFromRemote();
+    } finally {
+      pendingSaves--;
+    }
+  });
+}
+
+async function reloadFromRemote() {
+  try {
+    const { locked } = await fetchRemote(tokenStore.get());
+    state.data = await unlock(locked, state.code);
+    render();
+  } catch {}
+}
+
+// ---------- toast ----------
+
+let toastTimer;
+function toast(text, isError = false) {
+  let el = document.getElementById("toast");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "toast";
+    el.setAttribute("role", "status");
+    document.body.appendChild(el);
+  }
+  el.textContent = text;
+  el.className = "toast show" + (isError ? " error" : "");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove("show"), isError ? 6000 : 2500);
+}
+
+// ---------- bottom sheet (editor + sync setup) ----------
+
+function openSheet(html) {
+  let sheet = document.getElementById("sheet");
+  if (!sheet) {
+    sheet = document.createElement("div");
+    sheet.id = "sheet";
+    sheet.className = "sheet-wrap";
+    sheet.addEventListener("click", (e) => { if (e.target === sheet || e.target.closest("[data-close]")) closeSheet(); });
+    document.body.appendChild(sheet);
+  }
+  sheet.innerHTML = `<div class="sheet glass" role="dialog" aria-modal="true">${html}</div>`;
+  requestAnimationFrame(() => sheet.classList.add("open"));
+  document.body.classList.add("sheet-open");
+  return sheet.querySelector(".sheet");
+}
+
+function closeSheet() {
+  const sheet = document.getElementById("sheet");
+  if (!sheet) return;
+  sheet.classList.remove("open");
+  document.body.classList.remove("sheet-open");
+  setTimeout(() => { if (!sheet.classList.contains("open")) sheet.innerHTML = ""; }, 300);
+}
+
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeSheet(); });
+
+const option = (value, current, label = value) => `<option value="${esc(value)}"${value === current ? " selected" : ""}>${esc(label)}</option>`;
+
+const taskRow = (t = {}) => `<div class="task-row">
+  <input type="checkbox" class="t-done" ${t.done ? "checked" : ""} aria-label="Done">
+  <input type="text" class="t-title" value="${esc(t.title || "")}" placeholder="Exam, assignment…">
+  <input type="date" class="t-date" value="${esc(t.date || "")}">
+  <select class="t-type">${["assignment", "exam", "task"].map((x) => option(x, t.type || "task")).join("")}</select>
+  <button type="button" class="x-btn" data-remove-row aria-label="Remove">×</button>
+</div>`;
+
+const goalRow = (g) => `<div class="goal-row" data-label="${esc(g.label)}">
+  <span>${esc(g.label)}</span>
+  <label>Start <input type="number" step="0.1" class="g-start" value="${esc(g.start)}"></label>
+  <label>Target <input type="number" step="0.1" class="g-target" value="${esc(g.target)}"></label>
+</div>`;
+
+function openEditor(name, category) {
+  const existing = name ? findProject(state.data, name) : null;
+  const p = existing || { name: "", category: category || "Business", status: "active", priority: "medium", progress: 0, nextStep: "", notes: "", tasks: [], links: [] };
+  const isUni = p.category === "University";
+
+  const sheet = openSheet(`<form class="editor" id="editor">
+    <div class="row between sheet-head"><h3>${existing ? "Edit" : "New"} ${esc(p.category.toLowerCase())} item</h3>
+      <button type="button" class="x-btn big-x" data-close aria-label="Close">×</button></div>
+
+    <label class="field">Name<input name="name" required value="${esc(p.name)}"></label>
+    <div class="field-row">
+      <label class="field">Status<select name="status">${["idea", "active", "paused", "done"].map((s) => option(s, p.status)).join("")}</select></label>
+      <label class="field">Priority<select name="priority">${["high", "medium", "low"].map((s) => option(s, p.priority || "medium")).join("")}</select></label>
+      <label class="field">Section<select name="category">${["Business", "University", "Personal"].map((s) => option(s, p.category)).join("")}</select></label>
+    </div>
+    <label class="field">Progress <output id="prog-out">${Number(p.progress) || 0}%</output>
+      <input type="range" name="progress" min="0" max="100" step="5" value="${Number(p.progress) || 0}"></label>
+    <label class="field">Next step<textarea name="nextStep" rows="2">${esc(p.nextStep || "")}</textarea></label>
+    ${isUni ? `<label class="field">Studying now<input name="studyingNow" value="${esc(p.studyingNow || "")}"></label>` : ""}
+    <label class="field">Deadline<input type="date" name="deadline" value="${esc(p.deadline || "")}"></label>
+    <label class="field">Notes<textarea name="notes" rows="2">${esc(p.notes || "")}</textarea></label>
+
+    ${(p.goals || []).length ? `<div class="field"><span>Goals</span>${p.goals.map(goalRow).join("")}</div>` : ""}
+
+    <div class="field"><span>Dates to remember (exams, assignments…)</span>
+      <div id="task-rows">${(p.tasks || []).map(taskRow).join("")}</div>
+      <button type="button" class="add-btn" id="add-task">+ Add date</button>
+    </div>
+
+    <div class="row between sheet-actions">
+      ${existing ? `<button type="button" class="ghost-btn danger" id="delete-btn">Delete</button>` : "<span></span>"}
+      <button type="submit" class="enter-btn save-btn">Save</button>
+    </div>
+  </form>`);
+
+  const form = sheet.querySelector("#editor");
+  form.progress.addEventListener("input", () => (sheet.querySelector("#prog-out").textContent = form.progress.value + "%"));
+  sheet.querySelector("#add-task").addEventListener("click", () => sheet.querySelector("#task-rows").insertAdjacentHTML("beforeend", taskRow()));
+  sheet.addEventListener("click", (e) => { const x = e.target.closest("[data-remove-row]"); if (x) x.closest(".task-row").remove(); });
+
+  const del = sheet.querySelector("#delete-btn");
+  if (del) del.addEventListener("click", () => {
+    if (!del.dataset.armed) { del.dataset.armed = "1"; del.textContent = "Tap again to delete"; return; }
+    closeSheet();
+    save((d) => { d.projects = (d.projects || []).filter((x) => x.name !== name); }, `Deleted ${name}`);
+  });
+
+  form.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const f = form.elements;
+    const newName = f.name.value.trim();
+    if (!newName) return;
+    if (newName !== name && findProject(state.data, newName)) { toast("Another item already has that name.", true); return; }
+
+    const values = {
+      name: newName,
+      category: f.category.value,
+      status: f.status.value,
+      priority: f.priority.value,
+      progress: Number(f.progress.value),
+      nextStep: f.nextStep.value.trim(),
+      deadline: f.deadline.value,
+      notes: f.notes.value.trim(),
+      tasks: [...sheet.querySelectorAll(".task-row")]
+        .map((r) => ({ title: r.querySelector(".t-title").value.trim(), date: r.querySelector(".t-date").value, type: r.querySelector(".t-type").value, done: r.querySelector(".t-done").checked }))
+        .filter((t) => t.title)
+        .map((t) => (t.done ? t : { title: t.title, date: t.date, type: t.type })),
+    };
+    if (f.studyingNow) values.studyingNow = f.studyingNow.value.trim();
+    const goals = [...sheet.querySelectorAll(".goal-row")].map((r) => ({ label: r.dataset.label, start: Number(r.querySelector(".g-start").value), target: Number(r.querySelector(".g-target").value) }));
+
+    closeSheet();
+    save((d) => {
+      let target = name ? findProject(d, name) : null;
+      if (!target) { target = { links: [] }; (d.projects ||= []).push(target); }
+      Object.assign(target, values);
+      for (const g of goals) {
+        const goal = (target.goals || []).find((x) => x.label === g.label);
+        if (goal) { if (Number.isFinite(g.start)) goal.start = g.start; if (Number.isFinite(g.target)) goal.target = g.target; delete goal.example; }
+      }
+    }, `${name ? "Updated" : "Added"} ${newName}`);
+  });
+}
+
+function openSyncSheet(reason = "") {
+  const connected = !!tokenStore.get();
+  const sheet = openSheet(`<div class="editor">
+    <div class="row between sheet-head"><h3>Saving on this device</h3>
+      <button type="button" class="x-btn big-x" data-close aria-label="Close">×</button></div>
+    ${reason ? `<p class="sync-reason">${esc(reason)}</p>` : ""}
+    <p class="muted">${connected ? "This device is connected. Your changes save to GitHub and show on all your devices." :
+      "Changes are saved to your GitHub site, so they show on your phone, iPad and PC. Each device needs your GitHub key once."}</p>
+    <ol class="steps">
+      <li>On GitHub, open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Settings → Developer settings → Fine-grained tokens → Generate new token</a>.</li>
+      <li>Name it <b>Gerardo HQ</b>, set an expiration (up to 1 year), and under <b>Repository access</b> choose <b>Only select repositories → gerardo-hq</b>.</li>
+      <li>Under <b>Permissions → Repository permissions</b> set <b>Contents</b> to <b>Read and write</b>. Click <b>Generate token</b> and copy it.</li>
+      <li>Paste it below. Keep a copy in a safe place (like your password manager) for your other devices.</li>
+    </ol>
+    <form id="sync-form" class="field">
+      <input id="token-input" type="password" autocomplete="off" spellcheck="false" placeholder="${connected ? "Connected ✓ (paste a new key to replace it)" : "Paste your GitHub key (github_pat_…)"}">
+      <button type="submit" class="enter-btn save-btn">Connect this device</button>
+      <p class="lock-msg" id="sync-msg"></p>
+    </form>
+    ${connected ? `<button type="button" class="ghost-btn danger" id="disconnect-btn">Disconnect this device</button>` : ""}
+  </div>`);
+
+  const msg = sheet.querySelector("#sync-msg");
+  sheet.querySelector("#sync-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const token = sheet.querySelector("#token-input").value.trim();
+    if (!token) return;
+    msg.textContent = "Checking…";
+    try {
+      const r = await fetch(`https://api.github.com/repos/${REPO}`, { headers: githubHeaders(token), cache: "no-store" });
+      if (!r.ok) throw new Error(r.status === 401 ? "GitHub doesn't accept that key." : `GitHub said ${r.status}.`);
+      const repo = await r.json();
+      if (!repo.permissions?.push) throw new Error("That key can only read. Set Contents to Read and write.");
+      const { locked } = await fetchRemote(token);
+      await unlock(locked, state.code);
+      tokenStore.set(token);
+      msg.textContent = "";
+      closeSheet();
+      toast("Connected ✓ This device can now save changes.");
+    } catch (err) {
+      msg.textContent = err.message || "That didn't work. Check the key and try again.";
+    }
+  });
+  const disconnect = sheet.querySelector("#disconnect-btn");
+  if (disconnect) disconnect.addEventListener("click", () => { tokenStore.clear(); closeSheet(); toast("This device is disconnected. Changes won't save here."); });
+}
+
+document.getElementById("sync-btn").addEventListener("click", () => openSyncSheet());
 
 function showLoadError(err) {
   const fileMode = location.protocol === "file:";
@@ -560,9 +964,10 @@ async function unlock(locked, code) {
   return JSON.parse(new TextDecoder().decode(plain));
 }
 
-function start(data) {
+function start(data, code) {
   document.body.classList.remove("locked");
   state.data = data;
+  state.code = code;
   if (data.owner) document.getElementById("title").textContent = `${data.owner}'s Command Center`;
   if (data.tagline) document.getElementById("today").textContent += ` · ${data.tagline}`;
   render();
@@ -592,7 +997,7 @@ function showLockScreen(locked, message = "") {
     try {
       const data = await unlock(locked, code);
       if (document.getElementById("remember").checked) storage.set(code);
-      start(data);
+      start(data, code);
     } catch {
       msg.textContent = "Wrong code. Try again.";
       input.select();
@@ -612,19 +1017,27 @@ async function init() {
   document.getElementById("today").textContent = `${DAY_NAMES[t.getDay()]}, ${t.getDate()} ${MONTHS[t.getMonth()]} ${t.getFullYear()}`;
   state.tab = TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "overview";
 
+  // A connected device reads the newest copy straight from GitHub;
+  // otherwise use the published file (which can lag a minute or two behind).
   let locked;
-  try {
-    const r = await fetch("data.locked.json", { cache: "no-store" });
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    locked = await r.json();
-  } catch (err) {
-    return showLoadError(err);
+  const token = tokenStore.get();
+  if (token) {
+    try { ({ locked } = await fetchRemote(token)); } catch {}
+  }
+  if (!locked) {
+    try {
+      const r = await fetch("data.locked.json", { cache: "no-store" });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      locked = await r.json();
+    } catch (err) {
+      return showLoadError(err);
+    }
   }
 
   const saved = storage.get();
   if (saved) {
     try {
-      return start(await unlock(locked, saved));
+      return start(await unlock(locked, saved), saved);
     } catch {
       storage.clear(); // the code changed since this device saved it
     }
