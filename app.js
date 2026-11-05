@@ -109,8 +109,11 @@ function calendarItems({ includeRecurring = false, eachDay = false } = {}) {
   if (state.status !== "all") return [];
   const q = state.query.trim().toLowerCase();
   const out = [];
+  // An all-day event on the same date as an open exam or assignment is the same thing twice.
+  const taskDates = new Set(projects().filter((p) => p.status !== "done").flatMap((p) => (p.tasks || []).filter((t) => !t.done).map((t) => t.date)));
   for (const e of state.data?.calendar?.events || []) {
     if (e.recurring && !includeRecurring) continue;
+    if (!e.time && !e.endDate && taskDates.has(e.date)) continue;
     if (q && !`${e.title} ${e.location || ""}`.toLowerCase().includes(q)) continue;
     const start = parseDate(e.date);
     if (!start) continue;
